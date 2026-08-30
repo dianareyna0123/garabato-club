@@ -48,10 +48,10 @@ El repositorio incluye `render.yaml`:
 
 1. Sube el proyecto a un repositorio Git.
 2. En Render, elige **New > Blueprint** y conecta el repositorio.
-3. Establece `CLIENT_ORIGIN` a la URL pública final, por ejemplo `https://garabato-club.onrender.com`.
-4. Despliega. El build ejecuta `npm install && npm run build` y el servicio arranca con `npm start`.
+3. Revisa el servicio gratuito que Render propone y pulsa **Deploy Blueprint**.
+4. El build ejecuta `npm install && npm run build` y el servicio arranca con `npm start`.
 
-En Railway crea un servicio desde el mismo repositorio, usa `npm run build` como comando de build, `npm start` como comando de inicio y define `CLIENT_ORIGIN` con el dominio público. `PORT` lo aporta automáticamente la plataforma.
+En Railway crea un servicio desde el mismo repositorio, usa `npm run build` como comando de build y `npm start` como comando de inicio. `PORT` lo aporta automáticamente la plataforma. `CLIENT_ORIGIN` es opcional y sólo hace falta si el frontend se aloja en un dominio distinto del servidor.
 
 ## Arquitectura y seguridad
 

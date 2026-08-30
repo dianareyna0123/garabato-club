@@ -9,10 +9,10 @@ import { DEFAULT_WORDS, buildTurnOrder, newRoom, normalizeAnswer, parseWords, ro
 
 const app = express();
 const server = createServer(app);
-const allowedOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
-app.use(cors({ origin: allowedOrigin }));
+const allowedOrigin = process.env.CLIENT_ORIGIN;
+if (allowedOrigin) app.use(cors({ origin: allowedOrigin }));
 app.use(express.json());
-const io = new Server(server, { cors: { origin: allowedOrigin }, maxHttpBufferSize: 100_000 });
+const io = new Server(server, { ...(allowedOrigin ? { cors: { origin: allowedOrigin } } : {}), maxHttpBufferSize: 100_000 });
 const rooms = new Map<string, Room>();
 const socketRooms = new Map<string, { code:string; playerId:string }>();
 const buckets = new Map<string, { draw:number[]; chat:number[] }>();
