@@ -4,7 +4,12 @@ import type { DrawSegment, GameSettings, RoomView } from '@garabato/shared';
 
 const socket=io({autoConnect:true});
 type Chat={id:string;name?:string;text:string;system?:boolean};
-const savedId=localStorage.getItem('garabato-player-id')||crypto.randomUUID();localStorage.setItem('garabato-player-id',savedId);
+// sessionStorage mantiene la identidad al recargar, pero permite que dos pestañas
+// del mismo navegador representen jugadores distintos. Guardamos también la
+// identidad más reciente en localStorage como respaldo persistente.
+const savedId=sessionStorage.getItem('garabato-player-id')||crypto.randomUUID();
+sessionStorage.setItem('garabato-player-id',savedId);
+localStorage.setItem('garabato-player-id',savedId);
 
 function Canvas({canDraw}:{canDraw:boolean}){
   const ref=useRef<HTMLCanvasElement>(null),drawing=useRef(false),last=useRef<{x:number;y:number}|null>(null), history=useRef<DrawSegment[]>([]);
