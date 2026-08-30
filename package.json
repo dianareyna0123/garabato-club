@@ -1,0 +1,14 @@
+{
+  "name": "garabato-club",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": ["client", "server", "shared"],
+  "scripts": {
+    "dev": "concurrently -n server,client -c yellow,cyan \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w shared && npm run build -w client && npm run build -w server",
+    "test": "npm run build -w shared && npm run test -w server",
+    "start": "npm run start -w server"
+  },
+  "devDependencies": { "concurrently": "^9.1.2" },
+  "engines": { "node": ">=20" }
+}
