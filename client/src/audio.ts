@@ -25,6 +25,9 @@ function effect(name:GameSound):HTMLAudioElement {
   return audio;
 }
 
+music.load();
+(Object.keys(soundSources) as GameSound[]).forEach(name=>effect(name).load());
+
 function play(audio:HTMLAudioElement,restart=false) {
   if (muted) return;
   if (restart) audio.currentTime = 0;
