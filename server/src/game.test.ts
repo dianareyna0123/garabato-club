@@ -1,11 +1,16 @@
 import { describe,expect,it } from 'vitest';
-import { buildTurnOrder, buildWordHint, normalizeAnswer, parseWords, scoreGuess, undoLastStroke } from './game.js';
+import { buildTurnOrder, buildWordHint, isNearAnswer, normalizeAnswer, parseWords, scoreGuess, undoLastStroke } from './game.js';
 import type { DrawSegment, FillAction } from '@garabato/shared';
 
 describe('normalización',()=>{
   it('ignora acentos, mayúsculas y espacios exteriores',()=>expect(normalizeAnswer('  ÁRBOL  ')).toBe('arbol'));
   it('consolida espacios internos',()=>expect(normalizeAnswer('Teléfono   móvil')).toBe('telefono movil'));
   it('limpia palabras duplicadas',()=>expect(parseWords('Árbol, arbol\n casa\n\nCasa')).toEqual(['Árbol','casa']));
+});
+describe('respuestas cercanas',()=>{
+  it('detecta un error pequeño sin importar acentos o mayúsculas',()=>{expect(isNearAnswer('ARBOL', 'árboles')).toBe(false);expect(isNearAnswer('arbol', 'árbol')).toBe(false);expect(isNearAnswer('arbols', 'árbol')).toBe(true);});
+  it('detecta una letra faltante y rechaza respuestas lejanas',()=>{expect(isNearAnswer('cas', 'casa')).toBe(true);expect(isNearAnswer('perro', 'bicicleta')).toBe(false);});
+  it('considera un espacio faltante como un error pequeño',()=>expect(isNearAnswer('oso polar', 'osopolar')).toBe(true));
 });
 describe('puntuación',()=>{
   it('premia rapidez dentro de la posición',()=>{expect(scoreGuess(1,80000,80000)).toBe(500);expect(scoreGuess(1,0,80000)).toBe(450);expect(scoreGuess(1,40000,80000)).toBe(475);});
@@ -22,6 +27,6 @@ describe('deshacer',()=>{
   it('deshace una acción de cubeta completa',()=>{const fill:FillAction={id:'relleno',x:.5,y:.5,color:'#ff0000',tool:'fill'};expect(undoLastStroke([fill]).segments).toEqual([]);});
 });
 describe('pistas progresivas',()=>{
-  it('mantiene la longitud y revela letras gradualmente',()=>{expect(buildWordHint('casa',0)).toBe('_ _ _ _');expect(buildWordHint('casa',1)).toBe('_ _ s _');expect(buildWordHint('casa',2)).toBe('c _ s _');});
-  it('conserva los espacios de palabras compuestas',()=>expect(buildWordHint('oso polar',0)).toContain('  '));
+  it('mantiene la longitud y revela letras gradualmente',()=>{expect(buildWordHint('casa',0)).toBe('____');expect(buildWordHint('casa',1)).toBe('__s_');expect(buildWordHint('casa',2)).toBe('c_s_');});
+  it('marca explícitamente los espacios de palabras compuestas',()=>expect(buildWordHint('oso polar',0)).toBe('___|_____'));
 });

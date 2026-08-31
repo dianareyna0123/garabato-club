@@ -6,6 +6,28 @@ export function normalizeAnswer(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('es');
 }
 
+function editDistance(left: string, right: string): number {
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex++) {
+    const current = [leftIndex];
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex++) {
+      const substitution = previous[rightIndex - 1] + (left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1);
+      current[rightIndex] = Math.min(previous[rightIndex] + 1, current[rightIndex - 1] + 1, substitution);
+    }
+    previous.splice(0, previous.length, ...current);
+  }
+  return previous[right.length];
+}
+
+export function isNearAnswer(guess: string, answer: string): boolean {
+  const normalizedGuess = normalizeAnswer(guess);
+  const normalizedAnswer = normalizeAnswer(answer);
+  if (!normalizedGuess || !normalizedAnswer || normalizedGuess === normalizedAnswer) return false;
+  const allowedDistance = Math.min(3, Math.max(1, Math.floor(normalizedAnswer.length * 0.2)));
+  return Math.abs(normalizedGuess.length - normalizedAnswer.length) <= allowedDistance
+    && editDistance(normalizedGuess, normalizedAnswer) <= allowedDistance;
+}
+
 export function parseWords(value: string): string[] {
   const seen = new Set<string>();
   return value.split(/[,\n\r]+/).map(w => w.trim().replace(/\s+/g, ' ')).filter(w => {
@@ -29,7 +51,7 @@ export function buildWordHint(word: string, revealedCount: number): string {
   const letterIndexes=[...word].map((char,index)=>char===' '?-1:index).filter(index=>index>=0);
   const revealOrder=[letterIndexes[Math.floor(letterIndexes.length/2)],letterIndexes[0]].filter((index,pos,list)=>index!==undefined&&list.indexOf(index)===pos);
   const revealed=new Set(revealOrder.slice(0,revealedCount));
-  return [...word].map((char,index)=>char===' '?'  ':revealed.has(index)?char:'_').join(' ');
+  return [...word].map((char,index)=>char===' '?'|':revealed.has(index)?char:'_').join('');
 }
 
 export function undoLastStroke(segments: CanvasAction[]): { segments: CanvasAction[]; strokeId?: string } {
