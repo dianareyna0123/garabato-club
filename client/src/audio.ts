@@ -1,10 +1,11 @@
-export type GameSound = 'firstStart' | 'countdown' | 'toolClick' | 'turnStart';
+export type GameSound = 'firstStart' | 'countdown' | 'toolClick' | 'turnStart' | 'correct';
 
 const soundSources:Record<GameSound,string> = {
   firstStart:'/sounds/primerinicio.mp3',
   countdown:'/sounds/10segundos.mp3',
   toolClick:'/sounds/click.mp3',
-  turnStart:'/sounds/iniciopartida2.mp3'
+  turnStart:'/sounds/iniciopartida2.mp3',
+  correct:'/sounds/correcto.mp3'
 };
 
 const music = new Audio('/sounds/musicfondo.mp3');
