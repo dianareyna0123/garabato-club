@@ -1,6 +1,6 @@
 import { describe,expect,it } from 'vitest';
-import { buildTurnOrder, normalizeAnswer, parseWords, scoreGuess, undoLastStroke } from './game.js';
-import type { DrawSegment } from '@garabato/shared';
+import { buildTurnOrder, buildWordHint, normalizeAnswer, parseWords, scoreGuess, undoLastStroke } from './game.js';
+import type { DrawSegment, FillAction } from '@garabato/shared';
 
 describe('normalización',()=>{
   it('ignora acentos, mayúsculas y espacios exteriores',()=>expect(normalizeAnswer('  ÁRBOL  ')).toBe('arbol'));
@@ -19,4 +19,9 @@ describe('rondas',()=>{
 });
 describe('deshacer',()=>{
   it('elimina todos los segmentos de la última pincelada',()=>{const make=(id:string):DrawSegment=>({id,from:{x:0,y:0},to:{x:1,y:1},color:'#000000',width:5,tool:'pen'});const result=undoLastStroke([make('trazo-1'),make('trazo-2'),make('trazo-2')]);expect(result.strokeId).toBe('trazo-2');expect(result.segments.map(s=>s.id)).toEqual(['trazo-1']);});
+  it('deshace una acción de cubeta completa',()=>{const fill:FillAction={id:'relleno',x:.5,y:.5,color:'#ff0000',tool:'fill'};expect(undoLastStroke([fill]).segments).toEqual([]);});
+});
+describe('pistas progresivas',()=>{
+  it('mantiene la longitud y revela letras gradualmente',()=>{expect(buildWordHint('casa',0)).toBe('_ _ _ _');expect(buildWordHint('casa',1)).toBe('_ _ s _');expect(buildWordHint('casa',2)).toBe('c _ s _');});
+  it('conserva los espacios de palabras compuestas',()=>expect(buildWordHint('oso polar',0)).toContain('  '));
 });

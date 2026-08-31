@@ -30,6 +30,7 @@ export interface RoomView {
   wordLength?: number;
   wordHint?: string;
   turnEndsAt?: number;
+  chooseEndsAt?: number;
   lastWord?: string;
   turnResults?: { playerId:string; name:string; position:number; points:number }[];
   message?: string;
@@ -44,6 +45,8 @@ export interface DrawSegment {
   width: number;
   tool: 'pen' | 'eraser';
 }
+export interface FillAction { id:string; x:number; y:number; color:string; tool:'fill' }
+export type CanvasAction = DrawSegment | FillAction;
 
 export const DEFAULT_SETTINGS: GameSettings = {
   rounds: 3, turnSeconds: 80, wordOptions: 3, allowRepeats: false, maxPlayers: 8, wordMode: 'mixed'

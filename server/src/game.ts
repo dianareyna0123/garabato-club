@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, type DrawSegment, type GameSettings, type Phase, type PlayerView, type RoomView } from '@garabato/shared';
+import { DEFAULT_SETTINGS, type CanvasAction, type GameSettings, type Phase, type PlayerView, type RoomView } from '@garabato/shared';
 
 export const DEFAULT_WORDS = ['árbol','avión','ballena','bicicleta','bombero','castillo','cocodrilo','corazón','dinosaurio','elefante','estrella','fantasma','guitarra','helado','mariposa','montaña','paraguas','pingüino','pirata','planeta','robot','sandía','teléfono','tiburón','tortuga','volcán'];
 
@@ -25,7 +25,14 @@ export function buildTurnOrder(playerIds: string[], rounds: number): string[] {
   return Array.from({ length: rounds }, () => [...playerIds]).flat();
 }
 
-export function undoLastStroke(segments: DrawSegment[]): { segments: DrawSegment[]; strokeId?: string } {
+export function buildWordHint(word: string, revealedCount: number): string {
+  const letterIndexes=[...word].map((char,index)=>char===' '?-1:index).filter(index=>index>=0);
+  const revealOrder=[letterIndexes[Math.floor(letterIndexes.length/2)],letterIndexes[0]].filter((index,pos,list)=>index!==undefined&&list.indexOf(index)===pos);
+  const revealed=new Set(revealOrder.slice(0,revealedCount));
+  return [...word].map((char,index)=>char===' '?'  ':revealed.has(index)?char:'_').join(' ');
+}
+
+export function undoLastStroke(segments: CanvasAction[]): { segments: CanvasAction[]; strokeId?: string } {
   const strokeId=segments.at(-1)?.id;
   return strokeId ? {segments:segments.filter(segment=>segment.id!==strokeId),strokeId} : {segments};
 }
@@ -34,20 +41,22 @@ export interface Player { id: string; socketId?: string; name: string; score: nu
 export interface Room {
   code: string; phase: Phase; players: Map<string, Player>; settings: GameSettings; customWords: string[];
   turnOrder: string[]; turnIndex: number; round: number; drawerId?: string; secretWord?: string;
-  options?: string[]; usedWords: Set<string>; turnEndsAt?: number; turnTimer?: NodeJS.Timeout; chooseTimer?: NodeJS.Timeout;
-  guessOrder: { playerId:string; name:string; position:number; points:number }[]; history: DrawSegment[];
+  options?: string[]; usedWords: Set<string>; turnEndsAt?: number; chooseEndsAt?: number; turnTimer?: NodeJS.Timeout; chooseTimer?: NodeJS.Timeout; hintTimers: NodeJS.Timeout[];
+  guessOrder: { playerId:string; name:string; position:number; points:number }[]; history: CanvasAction[];
 }
 
 export function roomView(room: Room): RoomView {
   const players: PlayerView[] = [...room.players.values()].map(({ id,name,score,isHost,connected,guessed }) => ({ id,name,score,isHost,connected,guessed }));
-  const hint = room.secretWord ? room.secretWord.split('').map(c => c === ' ' ? '  ' : '_').join(' ') : undefined;
+  const totalMs=room.settings.turnSeconds*1000,start=(room.turnEndsAt||0)-totalMs,elapsed=Math.max(0,Date.now()-start);
+  const revealedCount=room.phase==='drawing'?Math.min(2,Math.floor(elapsed/(totalMs/3))):0;
+  const hint = room.secretWord ? buildWordHint(room.secretWord,revealedCount) : undefined;
   return { code: room.code, phase: room.phase, players, settings: room.settings, customWordCount: room.customWords.length,
     drawerId: room.drawerId, round: room.round, totalRounds: room.settings.rounds, wordLength: room.secretWord?.replace(/\s/g,'').length,
-    wordHint: hint, turnEndsAt: room.turnEndsAt,
+    wordHint: hint, turnEndsAt: room.turnEndsAt, chooseEndsAt:room.chooseEndsAt,
     lastWord: room.phase==='turnEnd'?room.secretWord:undefined,
     turnResults: room.phase==='turnEnd'?room.guessOrder:undefined };
 }
 
 export function newRoom(code: string): Room {
-  return { code, phase:'lobby', players:new Map(), settings:{...DEFAULT_SETTINGS}, customWords:[], turnOrder:[], turnIndex:-1, round:0, usedWords:new Set(), guessOrder:[], history:[] };
+  return { code, phase:'lobby', players:new Map(), settings:{...DEFAULT_SETTINGS}, customWords:[], turnOrder:[], turnIndex:-1, round:0, usedWords:new Set(), hintTimers:[], guessOrder:[], history:[] };
 }

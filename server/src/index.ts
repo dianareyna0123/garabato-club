@@ -4,7 +4,7 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'node:http';
 import { Server, type Socket } from 'socket.io';
-import type { DrawSegment, GameSettings } from '@garabato/shared';
+import type { DrawSegment, FillAction, GameSettings } from '@garabato/shared';
 import { DEFAULT_WORDS, buildTurnOrder, newRoom, normalizeAnswer, parseWords, roomView, scoreGuess, undoLastStroke, type Player, type Room } from './game.js';
 
 const app = express();
@@ -39,7 +39,7 @@ function join(socket:Socket, room:Room, playerId:string, name:string) {
 
 function finishTurn(room:Room) {
   if(room.phase!=='drawing' && room.phase!=='choosing') return;
-  clearTimeout(room.turnTimer); clearTimeout(room.chooseTimer); room.phase='turnEnd';
+  clearTimeout(room.turnTimer); clearTimeout(room.chooseTimer); room.hintTimers.forEach(clearTimeout);room.hintTimers=[];room.phase='turnEnd';
   io.to(room.code).emit('turn:ended',{word:room.secretWord || room.options?.[0] || '', guesses:room.guessOrder, nextAt:Date.now()+5000});
   emitRoom(room); setTimeout(()=>startNextTurn(room),5000);
 }
@@ -55,7 +55,7 @@ function startNextTurn(room:Room) {
   while(room.turnIndex<room.turnOrder.length && !room.players.get(room.turnOrder[room.turnIndex])?.connected) room.turnIndex++;
   if(room.turnIndex>=room.turnOrder.length) { room.phase='finished'; room.drawerId=undefined; room.secretWord=undefined; emitRoom(room); io.to(room.code).emit('game:finished'); return; }
   room.drawerId=room.turnOrder[room.turnIndex]; room.round=Math.floor(room.turnIndex / Math.max(1,room.turnOrder.length/room.settings.rounds))+1;
-  room.players.forEach(p=>p.guessed=false); room.secretWord=undefined; room.guessOrder=[]; room.history=[]; room.phase='choosing';
+  room.players.forEach(p=>p.guessed=false); room.secretWord=undefined; room.guessOrder=[]; room.history=[]; room.phase='choosing';room.turnEndsAt=undefined;room.chooseEndsAt=Date.now()+15000;
   const pool=wordPool(room); room.options=[...pool].sort(()=>Math.random()-.5).slice(0,room.settings.wordOptions);
   const drawer=room.players.get(room.drawerId); if(drawer?.socketId) io.to(drawer.socketId).emit('turn:options',room.options);
   emitRoom(room); room.chooseTimer=setTimeout(()=>chooseWord(room,room.options?.[0]),15000);
@@ -63,9 +63,9 @@ function startNextTurn(room:Room) {
 
 function chooseWord(room:Room, choice?:string) {
   if(room.phase!=='choosing' || !choice || !room.options?.includes(choice)) return;
-  clearTimeout(room.chooseTimer); room.secretWord=choice; room.usedWords.add(normalizeAnswer(choice)); room.phase='drawing'; room.turnEndsAt=Date.now()+room.settings.turnSeconds*1000;
+  clearTimeout(room.chooseTimer); room.chooseEndsAt=undefined;room.secretWord=choice; room.usedWords.add(normalizeAnswer(choice)); room.phase='drawing'; room.turnEndsAt=Date.now()+room.settings.turnSeconds*1000;
   const drawer=room.players.get(room.drawerId!); if(drawer?.socketId) io.to(drawer.socketId).emit('turn:secret',choice);
-  io.to(room.code).emit('canvas:clear'); emitRoom(room); room.turnTimer=setTimeout(()=>finishTurn(room),room.settings.turnSeconds*1000);
+  io.to(room.code).emit('canvas:clear'); emitRoom(room);const totalMs=room.settings.turnSeconds*1000;room.hintTimers=[setTimeout(()=>emitRoom(room),totalMs/3),setTimeout(()=>emitRoom(room),totalMs*2/3)];room.turnTimer=setTimeout(()=>finishTurn(room),totalMs);
 }
 
 io.on('connection', socket => {
@@ -77,11 +77,12 @@ io.on('connection', socket => {
   socket.on('turn:sync',()=>{ const c=current(socket); if(!c?.room || c.room.drawerId!==c.playerId) return; if(c.room.phase==='choosing'&&c.room.options) socket.emit('turn:options',c.room.options); if(c.room.phase==='drawing'&&c.room.secretWord) socket.emit('turn:secret',c.room.secretWord); });
   socket.on('turn:choose',(word:unknown)=>{ const c=current(socket); if(!c?.room || c.room.drawerId!==c.playerId) return; chooseWord(c.room,cleanText(word,40)); });
   socket.on('draw:segment',(seg:DrawSegment)=>{ const c=current(socket); if(!c?.room || c.room.phase!=='drawing' || c.room.drawerId!==c.playerId || !allowed(socket.id,'draw',180,1000)) return; if(!seg || !['pen','eraser'].includes(seg.tool) || !/^#[0-9a-f]{6}$/i.test(seg.color) || !Number.isFinite(seg.from?.x)||!Number.isFinite(seg.to?.x)) return; const safe={...seg, width:Math.max(1,Math.min(40,Number(seg.width))), from:{x:Math.max(0,Math.min(1,seg.from.x)),y:Math.max(0,Math.min(1,seg.from.y))}, to:{x:Math.max(0,Math.min(1,seg.to.x)),y:Math.max(0,Math.min(1,seg.to.y))}}; c.room.history.push(safe); if(c.room.history.length>5000)c.room.history.shift(); socket.to(c.room.code).emit('draw:segment',safe); });
+  socket.on('draw:fill',(fill:FillAction)=>{const c=current(socket);if(!c?.room||c.room.phase!=='drawing'||c.room.drawerId!==c.playerId||!allowed(socket.id,'draw',10,1000))return;if(!fill||fill.tool!=='fill'||!/^#[0-9a-f]{6}$/i.test(fill.color)||!Number.isFinite(fill.x)||!Number.isFinite(fill.y))return;const safe:FillAction={id:cleanText(fill.id,60)||crypto.randomUUID(),tool:'fill',color:fill.color,x:Math.max(0,Math.min(1,fill.x)),y:Math.max(0,Math.min(1,fill.y))};c.room.history.push(safe);socket.to(c.room.code).emit('draw:fill',safe);});
   socket.on('canvas:clear',()=>{ const c=current(socket); if(c?.room?.phase==='drawing'&&c.room.drawerId===c.playerId){c.room.history=[];io.to(c.room.code).emit('canvas:clear');} });
   socket.on('canvas:undo',()=>{ const c=current(socket); if(c?.room?.phase!=='drawing'||c.room.drawerId!==c.playerId)return;const undone=undoLastStroke(c.room.history);if(!undone.strokeId)return;c.room.history=undone.segments;io.to(c.room.code).emit('canvas:undo',undone.strokeId); });
   socket.on('canvas:sync',()=>{ const c=current(socket); if(c?.room) socket.emit('canvas:history',c.room.history); });
   socket.on('chat:send',(raw:unknown)=>{ const c=current(socket), msg=cleanText(raw,180); if(!c?.room||c.room.phase!=='drawing'||!msg||!allowed(socket.id,'chat',5,5000)) return; const room=c.room,p=room.players.get(c.playerId); if(!p||p.id===room.drawerId) return; if(!p.guessed&&room.secretWord&&normalizeAnswer(msg)===normalizeAnswer(room.secretWord)){p.guessed=true;const position=room.guessOrder.length+1,pts=scoreGuess(position,(room.turnEndsAt||0)-Date.now(),room.settings.turnSeconds*1000);p.score+=pts;room.guessOrder.push({playerId:p.id,name:p.name,position,points:pts});const drawer=room.players.get(room.drawerId!);if(drawer)drawer.score+=50;io.to(room.code).emit('chat:system',`${p.name} acertó #${position} · +${pts}`);emitRoom(room);const guessers=[...room.players.values()].filter(x=>x.connected&&x.id!==room.drawerId);if(guessers.every(x=>x.guessed))finishTurn(room);return;} io.to(room.code).emit('chat:message',{id:crypto.randomUUID(),playerId:p.id,name:p.name,text:msg,at:Date.now()}); });
-  socket.on('disconnect',()=>{ const ref=socketRooms.get(socket.id);socketRooms.delete(socket.id);buckets.delete(socket.id);if(!ref)return;const r=rooms.get(ref.code),p=r?.players.get(ref.playerId);if(!r||!p)return;p.connected=false;p.socketId=undefined;if(p.isHost){p.isHost=false;const next=[...r.players.values()].find(x=>x.connected);if(next)next.isHost=true;}if(r.drawerId===p.id&&(r.phase==='drawing'||r.phase==='choosing'))finishTurn(r);emitRoom(r);setTimeout(()=>{if(![...r.players.values()].some(x=>x.connected)){clearTimeout(r.turnTimer);clearTimeout(r.chooseTimer);rooms.delete(r.code);}},60000); });
+  socket.on('disconnect',()=>{ const ref=socketRooms.get(socket.id);socketRooms.delete(socket.id);buckets.delete(socket.id);if(!ref)return;const r=rooms.get(ref.code),p=r?.players.get(ref.playerId);if(!r||!p)return;p.connected=false;p.socketId=undefined;if(p.isHost){p.isHost=false;const next=[...r.players.values()].find(x=>x.connected);if(next)next.isHost=true;}if(r.drawerId===p.id&&(r.phase==='drawing'||r.phase==='choosing'))finishTurn(r);emitRoom(r);setTimeout(()=>{if(![...r.players.values()].some(x=>x.connected)){clearTimeout(r.turnTimer);clearTimeout(r.chooseTimer);r.hintTimers.forEach(clearTimeout);rooms.delete(r.code);}},60000); });
 });
 
 app.get('/api/health',(_req,res)=>res.json({ok:true,rooms:rooms.size}));
