@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { io } from 'socket.io-client';
 import type { CanvasAction, DrawSegment, FillAction, GameSettings, RoomView, ShapeAction, ShapeKind } from '@garabato/shared';
-import { audioIsMuted, playGameSound, setAudioMuted, startBackgroundMusic } from './audio';
+import { audioIsMuted, playGameSound, setAudioMuted, startBackgroundMusic, stopGameSound } from './audio';
 
 const socket=io({autoConnect:true});
 type Chat={id:string;name?:string;text:string;system?:boolean};
@@ -95,9 +95,10 @@ function Game({room,me}:{room:RoomView;me:string}){
   useEffect(()=>{if(!nearNotice)return;const timer=setTimeout(()=>setNearNotice(0),2600);return()=>clearTimeout(timer)},[nearNotice]);
   useEffect(()=>{scroll.current?.scrollTo({top:scroll.current.scrollHeight})},[chat]);
   const deadline=room.phase==='choosing'?room.chooseEndsAt:room.turnEndsAt,remaining=Math.max(0,Math.ceil(((deadline||now)-now)/1000)),typedLetters=[...text].filter(char=>/[\p{L}\p{N}]/u.test(char)).length;const send=(e:FormEvent)=>{e.preventDefault();if(!text.trim())return;socket.emit('chat:send',text);setText('')};
-  useEffect(()=>{if(!deadline||!['choosing','drawing'].includes(room.phase)||remaining<=0||remaining>10)return;const key=`${room.phase}:${deadline}`;if(lastCountdownSound.current===key)return;lastCountdownSound.current=key;playGameSound('countdown')},[deadline,remaining,room.phase]);
+  useEffect(()=>{stopGameSound('countdown')},[deadline,room.phase]);
+  useEffect(()=>{if(!deadline||!['choosing','drawing'].includes(room.phase)||remaining<=0||remaining>9)return;const key=`${room.phase}:${deadline}`;if(lastCountdownSound.current===key)return;lastCountdownSound.current=key;playGameSound('countdown')},[deadline,remaining,room.phase]);
   useEffect(()=>{if(room.phase!=='drawing'||!room.turnEndsAt||lastTurnStartSound.current===room.turnEndsAt)return;lastTurnStartSound.current=room.turnEndsAt;if(Date.now()-turnStartPlayedFromChoice.current<5000){turnStartPlayedFromChoice.current=0;return}const totalMs=room.settings.turnSeconds*1000;if(room.turnEndsAt-Date.now()>=totalMs-5000)playGameSound('turnStart')},[room.phase,room.settings.turnSeconds,room.turnEndsAt]);
-  const chooseWord=(word:string)=>{playGameSound('toolClick');playGameSound('turnStart');turnStartPlayedFromChoice.current=Date.now();socket.emit('turn:choose',word)};
+  const chooseWord=(word:string)=>{stopGameSound('countdown');playGameSound('toolClick');playGameSound('turnStart');turnStartPlayedFromChoice.current=Date.now();socket.emit('turn:choose',word)};
   if(room.phase==='finished'){const ranking=[...room.players].sort((a,b)=>b.score-a.score);return <main className="results"><div className="card"><p className="eyebrow">Fin de la partida</p><h1>El podio del garabato</h1><div className="podium">{ranking.map((p,i)=><div key={p.id} className={`rank r${i+1}`}><span>{i===0?'★':i+1}</span><b>{p.name}</b><strong>{p.score} pts</strong></div>)}</div><button className="primary" onClick={()=>location.reload()}>Jugar otra vez</button></div></main>}
   return <main className="game"><header className="gamebar"><div className="round"><span>Ronda</span><b>{room.round}/{room.totalRounds}</b></div><div className="turn-title"><span>{isDrawer?'Tu palabra':`${drawer?.name||'Alguien'} dibuja`}</span><strong className={!isDrawer&&room.wordHint?'word-hint':''}>{isDrawer?(secret||'Elige una palabra'):(room.wordHint?<WordHint hint={room.wordHint}/>: 'Preparando…')}</strong>{!isDrawer&&room.phase==='drawing'&&<small>{room.wordLength} letras en total</small>}</div><div className={`timer ${remaining<11?'urgent':''}`}><span>{room.phase==='choosing'?'Para elegir':'Tiempo'}</span><b>{remaining}s</b></div></header>
     {room.phase==='choosing'&&isDrawer&&<div className="choice-overlay"><div className="card"><p className="eyebrow">Sólo tú puedes verlo</p><div className="choice-countdown" aria-live="polite">{remaining}s</div><h2>¿Qué quieres dibujar?</h2><div className="choices">{options.map(x=><button key={x} onClick={()=>chooseWord(x)}>{x}</button>)}</div><small>Si no eliges, escogeremos una por ti.</small></div></div>}

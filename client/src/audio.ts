@@ -4,7 +4,7 @@ const soundSources:Record<GameSound,string> = {
   firstStart:'/sounds/primerinicio.mp3',
   countdown:'/sounds/10segundos.mp3',
   toolClick:'/sounds/click.mp3',
-  turnStart:'/sounds/iniciopartida.mp3'
+  turnStart:'/sounds/iniciopartida2.mp3'
 };
 
 const music = new Audio('/sounds/musicfondo.mp3');
@@ -40,6 +40,13 @@ export function startBackgroundMusic() {
 
 export function playGameSound(name:GameSound) {
   play(effect(name),true);
+}
+
+export function stopGameSound(name:GameSound) {
+  const audio = effects.get(name);
+  if (!audio) return;
+  audio.pause();
+  audio.currentTime = 0;
 }
 
 export function audioIsMuted() {
