@@ -31,6 +31,7 @@ export interface RoomView {
   wordHint?: string;
   turnEndsAt?: number;
   lastWord?: string;
+  turnResults?: { playerId:string; name:string; position:number; points:number }[];
   message?: string;
 }
 

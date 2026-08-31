@@ -43,7 +43,9 @@ export function roomView(room: Room): RoomView {
   const hint = room.secretWord ? room.secretWord.split('').map(c => c === ' ' ? '  ' : '_').join(' ') : undefined;
   return { code: room.code, phase: room.phase, players, settings: room.settings, customWordCount: room.customWords.length,
     drawerId: room.drawerId, round: room.round, totalRounds: room.settings.rounds, wordLength: room.secretWord?.replace(/\s/g,'').length,
-    wordHint: hint, turnEndsAt: room.turnEndsAt };
+    wordHint: hint, turnEndsAt: room.turnEndsAt,
+    lastWord: room.phase==='turnEnd'?room.secretWord:undefined,
+    turnResults: room.phase==='turnEnd'?room.guessOrder:undefined };
 }
 
 export function newRoom(code: string): Room {
