@@ -1,6 +1,6 @@
 import { describe,expect,it } from 'vitest';
 import { buildTurnOrder, buildWordHint, isNearAnswer, normalizeAnswer, parseWords, scoreGuess, undoLastStroke } from './game.js';
-import type { DrawSegment, FillAction } from '@garabato/shared';
+import type { DrawSegment, FillAction, ShapeAction } from '@garabato/shared';
 
 describe('normalización',()=>{
   it('ignora acentos, mayúsculas y espacios exteriores',()=>expect(normalizeAnswer('  ÁRBOL  ')).toBe('arbol'));
@@ -23,8 +23,9 @@ describe('rondas',()=>{
   it('da exactamente un turno a cada uno de cuatro jugadores por ronda',()=>{const order=buildTurnOrder(['a','b','c','d'],3);expect(order).toHaveLength(12);for(let round=0;round<3;round++)expect(order.slice(round*4,round*4+4)).toEqual(['a','b','c','d']);});
 });
 describe('deshacer',()=>{
-  it('elimina todos los segmentos de la última pincelada',()=>{const make=(id:string):DrawSegment=>({id,from:{x:0,y:0},to:{x:1,y:1},color:'#000000',width:5,tool:'pen'});const result=undoLastStroke([make('trazo-1'),make('trazo-2'),make('trazo-2')]);expect(result.strokeId).toBe('trazo-2');expect(result.segments.map(s=>s.id)).toEqual(['trazo-1']);});
-  it('deshace una acción de cubeta completa',()=>{const fill:FillAction={id:'relleno',x:.5,y:.5,color:'#ff0000',tool:'fill'};expect(undoLastStroke([fill]).segments).toEqual([]);});
+  it('elimina todos los segmentos de la última pincelada',()=>{const make=(id:string):DrawSegment=>({id,from:{x:0,y:0},to:{x:1,y:1},color:'#000000',width:5,opacity:1,tool:'pen'});const result=undoLastStroke([make('trazo-1'),make('trazo-2'),make('trazo-2')]);expect(result.strokeId).toBe('trazo-2');expect(result.segments.map(s=>s.id)).toEqual(['trazo-1']);});
+  it('deshace una acción de cubeta completa',()=>{const fill:FillAction={id:'relleno',x:.5,y:.5,color:'#ff0000',opacity:.5,tool:'fill'};expect(undoLastStroke([fill]).segments).toEqual([]);});
+  it('deshace una forma completa como una sola acción',()=>{const shape:ShapeAction={id:'estrella',from:{x:.1,y:.1},to:{x:.5,y:.5},color:'#ff0000',width:4,opacity:.7,tool:'shape',shape:'star'};expect(undoLastStroke([shape]).segments).toEqual([]);});
 });
 describe('pistas progresivas',()=>{
   it('mantiene la longitud y revela letras gradualmente',()=>{expect(buildWordHint('casa',0)).toBe('____');expect(buildWordHint('casa',1)).toBe('__s_');expect(buildWordHint('casa',2)).toBe('c_s_');});

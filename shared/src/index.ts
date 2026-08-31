@@ -43,10 +43,22 @@ export interface DrawSegment {
   to: DrawPoint;
   color: string;
   width: number;
+  opacity: number;
   tool: 'pen' | 'eraser';
 }
-export interface FillAction { id:string; x:number; y:number; color:string; tool:'fill' }
-export type CanvasAction = DrawSegment | FillAction;
+export interface FillAction { id:string; x:number; y:number; color:string; opacity:number; tool:'fill' }
+export type ShapeKind = 'circle' | 'square' | 'triangle' | 'star';
+export interface ShapeAction {
+  id:string;
+  from:DrawPoint;
+  to:DrawPoint;
+  color:string;
+  width:number;
+  opacity:number;
+  tool:'shape';
+  shape:ShapeKind;
+}
+export type CanvasAction = DrawSegment | FillAction | ShapeAction;
 
 export const DEFAULT_SETTINGS: GameSettings = {
   rounds: 3, turnSeconds: 80, wordOptions: 3, allowRepeats: false, maxPlayers: 8, wordMode: 'mixed'
