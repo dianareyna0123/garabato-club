@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, type GameSettings, type Phase, type PlayerView, type RoomView } from '@garabato/shared';
+import { DEFAULT_SETTINGS, type DrawSegment, type GameSettings, type Phase, type PlayerView, type RoomView } from '@garabato/shared';
 
 export const DEFAULT_WORDS = ['árbol','avión','ballena','bicicleta','bombero','castillo','cocodrilo','corazón','dinosaurio','elefante','estrella','fantasma','guitarra','helado','mariposa','montaña','paraguas','pingüino','pirata','planeta','robot','sandía','teléfono','tiburón','tortuga','volcán'];
 
@@ -25,12 +25,17 @@ export function buildTurnOrder(playerIds: string[], rounds: number): string[] {
   return Array.from({ length: rounds }, () => [...playerIds]).flat();
 }
 
+export function undoLastStroke(segments: DrawSegment[]): { segments: DrawSegment[]; strokeId?: string } {
+  const strokeId=segments.at(-1)?.id;
+  return strokeId ? {segments:segments.filter(segment=>segment.id!==strokeId),strokeId} : {segments};
+}
+
 export interface Player { id: string; socketId?: string; name: string; score: number; isHost: boolean; connected: boolean; guessed: boolean; lastSeen: number }
 export interface Room {
   code: string; phase: Phase; players: Map<string, Player>; settings: GameSettings; customWords: string[];
   turnOrder: string[]; turnIndex: number; round: number; drawerId?: string; secretWord?: string;
   options?: string[]; usedWords: Set<string>; turnEndsAt?: number; turnTimer?: NodeJS.Timeout; chooseTimer?: NodeJS.Timeout;
-  guessOrder: { playerId:string; name:string; position:number; points:number }[]; history: unknown[];
+  guessOrder: { playerId:string; name:string; position:number; points:number }[]; history: DrawSegment[];
 }
 
 export function roomView(room: Room): RoomView {

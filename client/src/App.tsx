@@ -13,23 +13,23 @@ sessionStorage.setItem('garabato-player-id',savedId);
 localStorage.setItem('garabato-player-id',savedId);
 
 function Canvas({canDraw}:{canDraw:boolean}){
-  const ref=useRef<HTMLCanvasElement>(null),drawing=useRef(false),last=useRef<{x:number;y:number}|null>(null), history=useRef<DrawSegment[]>([]);
+  const ref=useRef<HTMLCanvasElement>(null),drawing=useRef(false),last=useRef<{x:number;y:number}|null>(null),strokeId=useRef<string|null>(null),history=useRef<DrawSegment[]>([]);
   const [color,setColor]=useState('#25242a'),[width,setWidth]=useState(6),[tool,setTool]=useState<'pen'|'eraser'>('pen');
   const paint=useCallback((s:DrawSegment)=>{const c=ref.current,ctx=c?.getContext('2d');if(!c||!ctx)return;ctx.beginPath();ctx.moveTo(s.from.x*c.width,s.from.y*c.height);ctx.lineTo(s.to.x*c.width,s.to.y*c.height);ctx.strokeStyle=s.tool==='eraser'?'#fffdf7':s.color;ctx.lineWidth=s.width;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();},[]);
   const clear=useCallback(()=>{const c=ref.current,ctx=c?.getContext('2d');if(c&&ctx){ctx.fillStyle='#fffdf7';ctx.fillRect(0,0,c.width,c.height);}},[]);
   const redraw=useCallback(()=>{clear();history.current.forEach(paint)},[clear,paint]);
-  useEffect(()=>{const resize=()=>{const c=ref.current;if(!c)return;const box=c.getBoundingClientRect(),ratio=Math.min(devicePixelRatio,2);c.width=box.width*ratio;c.height=box.height*ratio;redraw()};resize();window.addEventListener('resize',resize);const segment=(s:DrawSegment)=>{history.current.push(s);paint(s)},reset=()=>{history.current=[];clear()},undo=()=>{history.current.pop();redraw()},sync=(items:DrawSegment[])=>{history.current=items;redraw()};socket.on('draw:segment',segment);socket.on('canvas:clear',reset);socket.on('canvas:undo',undo);socket.on('canvas:history',sync);socket.emit('canvas:sync');return()=>{window.removeEventListener('resize',resize);socket.off('draw:segment',segment);socket.off('canvas:clear',reset);socket.off('canvas:undo',undo);socket.off('canvas:history',sync)}},[clear,paint,redraw]);
+  useEffect(()=>{const resize=()=>{const c=ref.current;if(!c)return;const box=c.getBoundingClientRect(),ratio=Math.min(devicePixelRatio,2);c.width=box.width*ratio;c.height=box.height*ratio;redraw()};resize();window.addEventListener('resize',resize);const segment=(s:DrawSegment)=>{history.current.push(s);paint(s)},reset=()=>{history.current=[];clear()},undo=(id:string)=>{history.current=history.current.filter(s=>s.id!==id);redraw()},sync=(items:DrawSegment[])=>{history.current=items;redraw()},key=(e:KeyboardEvent)=>{if(canDraw&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();socket.emit('canvas:undo')}};socket.on('draw:segment',segment);socket.on('canvas:clear',reset);socket.on('canvas:undo',undo);socket.on('canvas:history',sync);window.addEventListener('keydown',key);socket.emit('canvas:sync');return()=>{window.removeEventListener('resize',resize);window.removeEventListener('keydown',key);socket.off('draw:segment',segment);socket.off('canvas:clear',reset);socket.off('canvas:undo',undo);socket.off('canvas:history',sync)}},[canDraw,clear,paint,redraw]);
   const pos=(e:ReactPointerEvent)=>{const b=ref.current!.getBoundingClientRect();return{x:(e.clientX-b.left)/b.width,y:(e.clientY-b.top)/b.height}};
-  const down=(e:ReactPointerEvent)=>{if(!canDraw)return;drawing.current=true;last.current=pos(e);e.currentTarget.setPointerCapture(e.pointerId)};
-  const move=(e:ReactPointerEvent)=>{if(!drawing.current||!last.current||!canDraw)return;const next=pos(e),s={id:crypto.randomUUID(),from:last.current,to:next,color,width,tool};history.current.push(s);paint(s);socket.emit('draw:segment',s);last.current=next};
-  const up=()=>{drawing.current=false;last.current=null};
+  const down=(e:ReactPointerEvent)=>{if(!canDraw)return;drawing.current=true;strokeId.current=crypto.randomUUID();last.current=pos(e);e.currentTarget.setPointerCapture(e.pointerId)};
+  const move=(e:ReactPointerEvent)=>{if(!drawing.current||!last.current||!strokeId.current||!canDraw)return;const next=pos(e),s={id:strokeId.current,from:last.current,to:next,color,width,tool};history.current.push(s);paint(s);socket.emit('draw:segment',s);last.current=next};
+  const up=()=>{drawing.current=false;last.current=null;strokeId.current=null};
   return <div className="canvas-shell">
     <canvas ref={ref} aria-label="Lienzo de dibujo" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}/>
     {canDraw&&<div className="tools" aria-label="Herramientas de dibujo">
       <button className={tool==='pen'?'selected':''} onClick={()=>setTool('pen')} title="Lápiz">✎</button><button className={tool==='eraser'?'selected':''} onClick={()=>setTool('eraser')} title="Borrador">◇</button>
-      <div className="colors">{['#25242a','#ef5b4c','#167d91','#efaa32','#6d4bb4','#3b8c57'].map(c=><button key={c} aria-label={`Color ${c}`} className={color===c?'selected':''} style={{background:c}} onClick={()=>{setColor(c);setTool('pen')}}/>)}</div>
+      <div className="colors">{['#25242a','#ef5b4c','#167d91','#efaa32','#6d4bb4','#3b8c57'].map(c=><button key={c} aria-label={`Color ${c}`} className={color===c?'selected':''} style={{background:c}} onClick={()=>{setColor(c);setTool('pen')}}/>)}<label className="custom-color" title="Crear un color"><span>+</span><input type="color" aria-label="Crear un color personalizado" value={color} onChange={e=>{setColor(e.target.value);setTool('pen')}}/></label></div>
       <label className="range"><span>Trazo</span><input aria-label="Grosor del trazo" type="range" min="2" max="24" value={width} onChange={e=>setWidth(+e.target.value)}/></label>
-      <button onClick={()=>socket.emit('canvas:undo')} title="Deshacer">↶</button><button onClick={()=>socket.emit('canvas:clear')} title="Limpiar">Limpiar</button>
+      <button onClick={()=>socket.emit('canvas:undo')} title="Deshacer la última pincelada (Ctrl+Z)">↶</button><button onClick={()=>socket.emit('canvas:clear')} title="Limpiar">Limpiar</button>
     </div>}
   </div>
 }

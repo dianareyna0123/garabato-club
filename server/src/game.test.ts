@@ -1,5 +1,6 @@
 import { describe,expect,it } from 'vitest';
-import { buildTurnOrder, normalizeAnswer, parseWords, scoreGuess } from './game.js';
+import { buildTurnOrder, normalizeAnswer, parseWords, scoreGuess, undoLastStroke } from './game.js';
+import type { DrawSegment } from '@garabato/shared';
 
 describe('normalización',()=>{
   it('ignora acentos, mayúsculas y espacios exteriores',()=>expect(normalizeAnswer('  ÁRBOL  ')).toBe('arbol'));
@@ -14,4 +15,8 @@ describe('puntuación',()=>{
 describe('rondas',()=>{
   it('da un turno por jugador en cada ronda',()=>expect(buildTurnOrder(['a','b','c'],2)).toEqual(['a','b','c','a','b','c']));
   it('acepta una sala de dos jugadores',()=>expect(buildTurnOrder(['a','b'],1)).toHaveLength(2));
+  it('da exactamente un turno a cada uno de cuatro jugadores por ronda',()=>{const order=buildTurnOrder(['a','b','c','d'],3);expect(order).toHaveLength(12);for(let round=0;round<3;round++)expect(order.slice(round*4,round*4+4)).toEqual(['a','b','c','d']);});
+});
+describe('deshacer',()=>{
+  it('elimina todos los segmentos de la última pincelada',()=>{const make=(id:string):DrawSegment=>({id,from:{x:0,y:0},to:{x:1,y:1},color:'#000000',width:5,tool:'pen'});const result=undoLastStroke([make('trazo-1'),make('trazo-2'),make('trazo-2')]);expect(result.strokeId).toBe('trazo-2');expect(result.segments.map(s=>s.id)).toEqual(['trazo-1']);});
 });
