@@ -15,9 +15,10 @@ export function parseWords(value: string): string[] {
   }).slice(0, 500);
 }
 
-export function scoreGuess(remainingMs: number, totalMs: number): number {
-  const ratio = Math.max(0, Math.min(1, remainingMs / totalMs));
-  return Math.round(100 + 400 * ratio);
+export function scoreGuess(position: number, remainingMs: number, totalMs: number): number {
+  const rankBase = Math.max(100, 400 - (Math.max(1, position) - 1) * 75);
+  const speedRatio = Math.max(0, Math.min(1, remainingMs / totalMs));
+  return Math.round(rankBase + 100 * speedRatio);
 }
 
 export function buildTurnOrder(playerIds: string[], rounds: number): string[] {
@@ -29,7 +30,7 @@ export interface Room {
   code: string; phase: Phase; players: Map<string, Player>; settings: GameSettings; customWords: string[];
   turnOrder: string[]; turnIndex: number; round: number; drawerId?: string; secretWord?: string;
   options?: string[]; usedWords: Set<string>; turnEndsAt?: number; turnTimer?: NodeJS.Timeout; chooseTimer?: NodeJS.Timeout;
-  history: unknown[];
+  guessOrder: { playerId:string; name:string; position:number; points:number }[]; history: unknown[];
 }
 
 export function roomView(room: Room): RoomView {
@@ -41,5 +42,5 @@ export function roomView(room: Room): RoomView {
 }
 
 export function newRoom(code: string): Room {
-  return { code, phase:'lobby', players:new Map(), settings:{...DEFAULT_SETTINGS}, customWords:[], turnOrder:[], turnIndex:-1, round:0, usedWords:new Set(), history:[] };
+  return { code, phase:'lobby', players:new Map(), settings:{...DEFAULT_SETTINGS}, customWords:[], turnOrder:[], turnIndex:-1, round:0, usedWords:new Set(), guessOrder:[], history:[] };
 }
