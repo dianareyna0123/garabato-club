@@ -43,7 +43,7 @@ function Home({error}:{error:string}){
 
 function Lobby({room,me}:{room:RoomView;me:string}){
   const mine=room.players.find(p=>p.id===me),[words,setWords]=useState(''),[settings,setSettings]=useState(room.settings),[copied,setCopied]=useState(false);
-  useEffect(()=>setSettings(room.settings),[room.settings]);
+  useEffect(()=>{setSettings(room.settings)},[room.settings]);
   const update=(patch:Partial<GameSettings>)=>{const next={...settings,...patch};setSettings(next);socket.emit('room:update',{settings:next,words})};
   const wordChange=(value:string)=>{setWords(value);socket.emit('room:update',{settings,words:value})};
   const link=`${location.origin}${location.pathname}?sala=${room.code}`;
@@ -63,7 +63,7 @@ function Game({room,me}:{room:RoomView;me:string}){
   useEffect(()=>{const sync=()=>socket.emit('room:sync'),visible=()=>{if(document.visibilityState==='visible')sync()};const timer=setInterval(sync,3000);window.addEventListener('focus',sync);document.addEventListener('visibilitychange',visible);sync();return()=>{clearInterval(timer);window.removeEventListener('focus',sync);document.removeEventListener('visibilitychange',visible)}},[]);
   useEffect(()=>{if(room.phase==='turnEnd'){if(room.lastWord)setLastWord(room.lastWord);if(room.turnResults)setTurnGuesses(room.turnResults)}},[room.phase,room.lastWord,room.turnResults]);
   useEffect(()=>{if(room.phase!=='drawing'||isDrawer)return;setGuessNotice(true);answerRef.current?.focus();const timer=setTimeout(()=>setGuessNotice(false),2500);return()=>clearTimeout(timer)},[room.phase,room.drawerId,isDrawer]);
-  useEffect(()=>scroll.current?.scrollTo({top:scroll.current.scrollHeight}),[chat]);
+  useEffect(()=>{scroll.current?.scrollTo({top:scroll.current.scrollHeight})},[chat]);
   const remaining=Math.max(0,Math.ceil(((room.turnEndsAt||now)-now)/1000));const send=(e:FormEvent)=>{e.preventDefault();if(!text.trim())return;socket.emit('chat:send',text);setText('')};
   if(room.phase==='finished'){const ranking=[...room.players].sort((a,b)=>b.score-a.score);return <main className="results"><div className="card"><p className="eyebrow">Fin de la partida</p><h1>El podio del garabato</h1><div className="podium">{ranking.map((p,i)=><div key={p.id} className={`rank r${i+1}`}><span>{i===0?'★':i+1}</span><b>{p.name}</b><strong>{p.score} pts</strong></div>)}</div><button className="primary" onClick={()=>location.reload()}>Jugar otra vez</button></div></main>}
   return <main className="game"><header className="gamebar"><div className="round"><span>Ronda</span><b>{room.round}/{room.totalRounds}</b></div><div className="turn-title"><span>{isDrawer?'Tu palabra':`${drawer?.name||'Alguien'} dibuja`}</span><strong>{isDrawer?(secret||'Elige una palabra'):(room.wordHint||'Preparando…')}</strong></div><div className={`timer ${remaining<11?'urgent':''}`}><span>Tiempo</span><b>{remaining}s</b></div></header>
