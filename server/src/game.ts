@@ -16,9 +16,9 @@ export function parseWords(value: string): string[] {
 }
 
 export function scoreGuess(position: number, remainingMs: number, totalMs: number): number {
-  const rankBase = Math.max(100, 400 - (Math.max(1, position) - 1) * 75);
+  const rankBase = Math.max(100, 450 - (Math.max(1, position) - 1) * 35);
   const speedRatio = Math.max(0, Math.min(1, remainingMs / totalMs));
-  return Math.round(rankBase + 100 * speedRatio);
+  return Math.round(rankBase + 50 * speedRatio);
 }
 
 export function buildTurnOrder(playerIds: string[], rounds: number): string[] {
